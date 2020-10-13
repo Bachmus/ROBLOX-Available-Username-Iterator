@@ -17,58 +17,37 @@ headers = {
     'Accept': 'application/json',
     "User-Agent": "Mozilla/5.0"
 }
+YOUR_ROBLOX_COOKIE = "Your .ROBLOSECURITY cookie goes here."
+# If you log out this will change. Stay logged in to keep this cookie.
+# There are plenty of tutorials on how to get your .ROBLOSECURITY cookie. Copy paste it into YOUR_ROBLOX_COOKIE field.
+# An example of what YOUR_ROBLOX_COOKIE should look like: "_|WARNING: -DO-NOT-SHARE-THIS.--... numbers ..."
+cookies = {'.ROBLOSECURITY': YOUR_ROBLOX_COOKIE}
 
 
-def filtered_user(username):
-    url = 'https://users.roblox.com/v1/users/search?keyword=%s&limit=10' % username
-    urlHandler = requests.get(url, headers=headers)
-    if urlHandler.status_code == 200:
-        # Either an exception username or it simply does not exist yet.
-        print("Username: %s does not exist yet and has been logged to file. Exceptions do exist though." % username)
-        logging.info(
-            "Username: %s does not exist yet. NOTE: There are exceptions! Roblox's API does NOT always find certain taken usernames." % username)
-    elif urlHandler.status_code == 400:
-        # Bad username. Filtered by Roblox.
-        print(
-            "Username query has been filtered by ROBLOX's filtering system: %s" % username)
-    elif urlHandler.status_code == 429:
-        # Too many requests.
-        print("API reported: %s Too many requests for username: %s" %
-              (urlHandler.status_code, username))
-    else:
-        # Unexpected error.
-        print("FILTERING Response failed with code: %s RETRYING..." %
-              urlHandler.status_code)
-        return filtered_user(username)
-
-
-def fetch_user(username):
-    data = '{"usernames": ["%s"], "excludeBannedUsers": false}' % username
-    # User API url. See all: https://users.roblox.com/docs
-    URL = 'https://users.roblox.com/v1/usernames/users'
-    urlHandler = requests.post(URL, headers=headers, data=data)
+def can_register_user(username):
+    url = "https://auth.roblox.com/v1/usernames/validate?context=UsernameChange&username=%s" % username
+    urlHandler = requests.get(url, headers=headers, cookies=cookies)
     if urlHandler.status_code == 200:
         root_doc = urlHandler.json()
-        if root_doc['data']:
-            print("uid: %s, Username: %s" %
-                  (root_doc['data'][0]['id'], username))
+        if root_doc and root_doc['code'] == 0:
+            print("Found an available username: %s" % username)
+            logging.info("Username: %s available!" % username)
+        elif root_doc and root_doc['code'] == 1:
+            print("Username is already in use: %s" % username)
         else:
-            # Is this username filtered by ROBLOX or genuinely not taken? (NOTE! Some taken username exceptions DO exist, ex. "a0uq")
-            filtered_user(username)
-        return
-    elif urlHandler.status_code == 400:
-        print('%s error code.' % urlHandler.status_code)
+            print("Filtering does not allow creation for the username: %s" % username)
+            logging.info(
+                "Username: %s does not exist but can't be made since it's inappropriate for Roblox!" % username)
     else:
-        print('REQUEST FAILED FOR: %s RETRYING...' % username)
-        # Retry finding user if request fails. This is normal with larger bulk requests.
-        return fetch_user(username)  # Recursion.
+        print("Your cookie is most likely invalid. Change it in the code!")
+        return can_register_user(username)  # Recursion.
 
 
 for v1, v2, v3, v4 in itertools.product(*ranges):
     username = ''.join('%s%s%s%s') % (ltrs[v1], ltrs[v2], ltrs[v3], ltrs[v4])
     bulk_list.append(username)
     if len(bulk_list) == bulk_size:
-        threads = [threading.Thread(target=fetch_user, args=(
+        threads = [threading.Thread(target=can_register_user, args=(
             user_data,)) for user_data in bulk_list]
         for thread in threads:
             thread.start()
