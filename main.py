@@ -54,7 +54,6 @@ def fetch_user(username):
                   (root_doc['data'][0]['id'], username))
         else:
             # Is this username filtered by ROBLOX or genuinely not taken? (NOTE! Some taken username exceptions DO exist, ex. "a0uq")
-            print("--------------------------------------------")
             filtered_user(username)
         return
     elif urlHandler.status_code == 400:
